@@ -1,0 +1,165 @@
+---
+title: "insurance_EDA"
+output: html_document
+date: "2023-01-05"
+author: Manasvi Ponaka
+---
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+library(tidyverse)
+library(viridis)
+```
+
+
+```{r pressure, echo=FALSE}
+data <-read.csv("insurance.csv")
+data <- data %>% mutate_if(is.character , as.factor)
+```
+#
+
+
+```{r}
+summary(data)
+```
+Let's visually explore features one by one
+```{r}
+data %>% 
+  ggplot(aes(x = age) )+
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "lightblue" , alpha = 0.5) +
+  geom_density()+
+  theme_classic()+
+     labs(title= "Distribution of age across policy holders ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+```
+
+
+```{r}
+```
+
+
+```{r}
+data %>% 
+  group_by(sex) %>% 
+  count() %>% 
+  ggplot(aes( x = "" ,y = n , fill = sex))+
+  geom_col( alpha= 0.5 , width=1, color="white")+
+  geom_text(aes(label =n),position = position_stack(vjust = 0.5), color = "white", size=6)+
+  coord_polar("y", start=0) + 
+  theme_void() +
+   labs(title= " Pi chart for gender profile of the policy holders ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+
+```
+
+
+```{r}
+data %>% 
+  ggplot(aes(x =bmi) )+
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "lightblue" , alpha = 0.5) +
+  geom_density()+
+  theme_classic()+
+   labs(title= "Distribution of bmi across policy holders ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+
+```
+
+
+```{r}
+str(data)
+```
+
+
+
+
+
+```{r}
+data %>% 
+  mutate(across(c(children) ,as.factor)) %>% 
+  group_by(children) %>% 
+  count() %>% 
+  ggplot(aes( x = "" ,y = n , fill = children))+
+  geom_col( alpha= 0.5 , width=1, color="white")+
+  geom_text(aes( x = 1.2 ,label = children),position = position_stack(vjust = 0.5), color = "white", size=4)+
+  geom_text(aes(  x = 1.7, label =n),position = position_stack(vjust = 0.5), color = "black", size=3.5)+
+  coord_polar("y", start=0) + 
+  theme_void()+
+  labs(title= " Pi chart of count of children(dependents) for the policy holder ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+
+```
+
+```{r}
+data %>% 
+  mutate(across(c(children) ,as.factor)) %>% 
+  group_by(children) %>% 
+  count() %>% 
+  ggplot(aes( x = children ,y = n , fill = children))+
+  geom_col( alpha= 0.5 , width=1, color="white")+
+  theme_classic()+
+     labs(title= "Barplot of children count across policy holders ")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+
+```
+
+```{r}
+data %>% 
+  mutate(across(c(smoker) ,as.factor)) %>% 
+  group_by(smoker) %>% 
+  count() %>% 
+  ggplot(aes( x = "" ,y = n , fill = smoker))+
+  geom_col( alpha= 0.5 , width=1, color="white")+
+  geom_text(aes( x = 1.2 ,label = smoker),position = position_stack(vjust = 0.5), color = "white", size=4)+
+  geom_text(aes(  x = 1.7, label =n),position = position_stack(vjust = 0.5), color = "black", size=3.5)+
+  coord_polar("y", start=0) + 
+  theme_void()+
+  labs(title= " Pi chart of count of children(dependents) for the policy holder ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+```
+```{r}
+data %>% 
+  mutate(across(c(region) ,as.factor)) %>% 
+  group_by(region) %>% 
+  count() %>% 
+  ggplot(aes( x = region ,y = n , fill = region))+
+  geom_col( alpha= 0.5 , width=1, color="white")+
+  theme_classic()+
+     labs(title= "Barplot of regions across policy holders ")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+```
+```{r}
+data %>% 
+  ggplot(aes(x =charges) )+
+  geom_histogram(aes(y = ..density..),
+                 colour = 1, fill = "lightblue" , alpha = 0.5) +
+  geom_density()+
+  theme_classic()+
+   labs(title= "Distribution of charges across policy holders ")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+```
+
+
+```{r}
+data %>% 
+    mutate(across(c(smoker) ,as.factor)) %>%
+  group_by(smoker) %>%
+  ggplot(aes( x= age , y = charges , colour = smoker))+
+  geom_point(alpha= 0.5)+
+  geom_smooth(method = "lm" , se = FALSE)+
+    theme_classic()+
+  labs(title= "Point plot for age vs bmi across policy holders ")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+```
+```{r}
+
+```
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
