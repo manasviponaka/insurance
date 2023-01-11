@@ -5,42 +5,49 @@ date: "2023-01-05"
 author: Manasvi Ponaka
 ---
 
-## Including Plots
-
-You can also embed plots, for example:
+# Medical insurance cost prediction
 
 ```{r pressure, echo=FALSE}
 library(tidyverse)
 library(viridis)
+library(patchwork)
+library(gridExtra)
+library(reshape2)
+library(caret)
+
 ```
 
+#### Loading data
 
-```{r pressure, echo=FALSE}
+```{r ,echo=FALSE}
 data <-read.csv("insurance.csv")
-data <- data %>% mutate_if(is.character , as.factor)
+data <- data %>% mutate_if
 ```
-#
-
 
 ```{r}
 summary(data)
 ```
-Let's visually explore features one by one
+
+## Let's visually explore features one by one
+
 ```{r}
 data %>% 
-  ggplot(aes(x = age) )+
+  ggplot(aes(x =log(age) ))+
   geom_histogram(aes(y = ..density..),
-                 colour = 1, fill = "lightblue" , alpha = 0.5) +
+                 bins = 30 , colour = 1, fill = "lightblue" , alpha = 0.5) +
   geom_density()+
   theme_classic()+
      labs(title= "Distribution of age across policy holders ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+    theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+                
+  theme(plot.title = element_text(hjust = 0.5, size=25),
+              			  axis.title.x= element_text(size=25),
+              			  axis.title.y= element_text(size=25),
+              			  axis.text.x = element_text(size=25),
+              			  axis.text.y = element_text(size=25),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "bottom")
 ```
-
-
-```{r}
-```
-
 
 ```{r}
 data %>% 
@@ -52,10 +59,13 @@ data %>%
   coord_polar("y", start=0) + 
   theme_void() +
    labs(title= " Pi chart for gender profile of the policy holders ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+    theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.2, size=25),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "right")
 
 ```
-
 
 ```{r}
 data %>% 
@@ -65,18 +75,21 @@ data %>%
   geom_density()+
   theme_classic()+
    labs(title= "Distribution of bmi across policy holders ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+    theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                theme(plot.title = element_text(hjust = 0.5, size=25),
+              			  axis.title.x= element_text(size=25),
+              			  axis.title.y= element_text(size=25),
+              			  axis.text.x = element_text(size=25),
+              			  axis.text.y = element_text(size=25),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "bottom")
 
 ```
-
 
 ```{r}
 str(data)
 ```
-
-
-
-
 
 ```{r}
 data %>% 
@@ -89,8 +102,12 @@ data %>%
   geom_text(aes(  x = 1.7, label =n),position = position_stack(vjust = 0.5), color = "black", size=3.5)+
   coord_polar("y", start=0) + 
   theme_void()+
-  labs(title= " Pi chart of count of children(dependents) for the policy holder ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+  labs(title= " Pi chart of count of children for the policy holder")+
+    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.3, size=22),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "right")
 
 ```
 
@@ -102,8 +119,16 @@ data %>%
   ggplot(aes( x = children ,y = n , fill = children))+
   geom_col( alpha= 0.5 , width=1, color="white")+
   theme_classic()+
-     labs(title= "Barplot of children count across policy holders ")+
-  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+     labs(title= "Barplot of children count across policy holders \n")+
+  theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.4, size=25),
+              			  axis.title.x= element_text(size=25),
+              			  axis.title.y= element_text(size=25),
+              			  axis.text.x = element_text(size=25),
+              			  axis.text.y = element_text(size=25),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "right")
 
 ```
 
@@ -114,13 +139,18 @@ data %>%
   count() %>% 
   ggplot(aes( x = "" ,y = n , fill = smoker))+
   geom_col( alpha= 0.5 , width=1, color="white")+
-  geom_text(aes( x = 1.2 ,label = smoker),position = position_stack(vjust = 0.5), color = "white", size=4)+
-  geom_text(aes(  x = 1.7, label =n),position = position_stack(vjust = 0.5), color = "black", size=3.5)+
+  geom_text(aes( x = 1.2 ,label = smoker),position = position_stack(vjust = 0.5), color = "white", size=7)+
+  geom_text(aes(  x = 1.7, label =n),position = position_stack(vjust = 0.5), color = "black", size=7)+
   coord_polar("y", start=0) + 
   theme_void()+
-  labs(title= " Pi chart of count of children(dependents) for the policy holder ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+  labs(title= " Pi chart of count of children for the policy holder ")+
+    theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+                
+  theme(plot.title = element_text(hjust = 0.3, size=24),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "right")
 ```
+
 ```{r}
 data %>% 
   mutate(across(c(region) ,as.factor)) %>% 
@@ -130,36 +160,410 @@ data %>%
   geom_col( alpha= 0.5 , width=1, color="white")+
   theme_classic()+
      labs(title= "Barplot of regions across policy holders ")+
-  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+  theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.5))+                
+  theme(plot.title = element_text(hjust = 0.5, size=24),
+              			  axis.title.x= element_text(size=0),
+              			  axis.title.y= element_text(size=25),
+              			  axis.text.x = element_text(size=0 , angle = 45),
+              			  axis.text.y = element_text(size=25),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
 ```
+
 ```{r}
 data %>% 
-  ggplot(aes(x =charges) )+
+  ggplot(aes(x = charges) )+
   geom_histogram(aes(y = ..density..),
                  colour = 1, fill = "lightblue" , alpha = 0.5) +
   geom_density()+
   theme_classic()+
    labs(title= "Distribution of charges across policy holders ")+
-    theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+    theme(text=element_text(size=13,  family="Times") , plot.title = element_text( hjust = 0.8))+                
+  theme(plot.title = element_text(hjust = 0.9, size=25),
+              			  axis.title.x= element_text(size=25),
+              			  axis.title.y= element_text(size=25),
+              			  axis.text.x = element_text(size=25),
+              			  axis.text.y = element_text(size=25),
+              			  legend.title = element_text(size = 25),
+              			  legend.text = element_text(size = 25),
+              			  legend.position = "bottom")
 ```
 
+## Interacting variable analysis
 
 ```{r}
 data %>% 
     mutate(across(c(smoker) ,as.factor)) %>%
   group_by(smoker) %>%
-  ggplot(aes( x= age , y = charges , colour = smoker))+
+  ggplot(aes( x= age , y = charges , colour = smoker ))+
   geom_point(alpha= 0.5)+
   geom_smooth(method = "lm" , se = FALSE)+
     theme_classic()+
-  labs(title= "Point plot for age vs bmi across policy holders ")+
-  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+  labs(title= "Point plot for age vs charges across smoking and \n non smoking policy holders")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.5, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
 ```
+
+```{r}
+data %>% 
+    mutate(across(c(smoker) ,as.factor)) %>%
+  group_by(smoker) %>%
+  ggplot(aes( x= bmi , y = charges , colour = smoker))+
+  geom_point(alpha= 0.5)+
+  geom_smooth(method = "lm" , se = FALSE)+
+    theme_classic()+
+  labs(title= "Point plot for age vs bmi across smoking and \n non smoking policy holders")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.5, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
+```
+
+```{r}
+box1<-data %>% 
+  group_by(smoker) %>%
+  ggplot(aes( x= region , y = charges , fill = region))+
+  geom_boxplot(alpha= 0.5)+
+    theme_classic()+
+  labs(title= "Box plot for charges across policy holders of different regions ")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+box1+ 
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.335, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(angle = 30, hjust  = 0.9,size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
+```
+
+```{r}
+box2 <-data %>% 
+  mutate(across(c(children) ,as.factor)) %>%
+  group_by(children) %>%
+  ggplot(aes( x= children , y = charges , fill = children))+
+  geom_boxplot(alpha= 0.5)+
+    theme_classic()+
+  labs(title= "Box plot for charges across policy holders with \n different children count ")+
+  theme(text=element_text( family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.5, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
+box2  
+
+```
+
+```{r}
+box3<-data %>%
+  group_by(sex) %>%
+  ggplot(aes( x= sex , y = charges , fill = sex))+
+  geom_boxplot(alpha= 0.5)+
+    theme_classic()+
+  labs(title= "Box plot for charges across policy holders of different regions ")+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))
+box3+ 
+                  theme(plot.title = element_text(hjust = 0.4, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
+```
+
+```{r}
+grid.arrange(box1,box2,box3 ,ncol = 3  ,
+  widths = c(2,1, 6),
+  layout_matrix = rbind(c(1,1 , NA),c(1,1 , NA),c(2,2,NA),c(2,2 , NA),c(3,3 , NA),c(3,3 , NA))
+)
+```
+
+Feature engineering
+
 ```{r}
 
+# anonymus fucntion to generate binary columns
+minus1<-function(x){
+  x-1
+}
+
+#change categorical data to numerical data
+data <- data %>%
+  mutate(across(where(is.factor) & !region,as.double)) %>% 
+  mutate(across(where(is.double),minus1)) %>% 
+  mutate(region_northeast = ifelse(region=='northeast', 1, 0),
+         region_northwest = ifelse(region=='northwest', 1, 0),
+         region_southeast = ifelse(region=='southeast', 1, 0),
+         region_southwest = ifelse(region=='southwest', 1, 0)) %>% 
+  select(-region)
+
+
+#generate polynomial features for numerical data
+poly_feat <- data %>% 
+             select(!charges) %>% 
+             mutate(exposure = log(data$age) , age2 =  age^2 ,age3 =  age^3, bmi2 = bmi^2 ,bmi3 = bmi^3,age_bmi_2 = age*bmi )
+
+head(poly_feat)
 ```
 
+```{r}
+cormat <-cor(poly_feat %>% mutate(charges = data$charges))
 
+# Get lower triangle of the correlation matrix
+  get_lower_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+  }
+  # Get upper triangle of the correlation matrix
+  get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+  }
+  
+  upper_tri <- get_upper_tri(round(cormat ,2))
 
+  
+  # Melt the correlation matrix
+library(reshape2)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Heatmap
+library(ggplot2)
+ggheatmap <- ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_void()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 8, hjust = 1) , axis.text.y = element_text(vjust = 1, 
+    size = 8, hjust = 1))+
+ coord_fixed()
+
+ggheatmap + 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+
+set.seed(123)
+training.samples <- data$charges %>%
+  createDataPartition(p = 0.75, list = FALSE)
+
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+
+normalizer <- preProcess(train.data, method="range")
+train.data <-predict(normalizer , train.data)
+test.data <-predict(normalizer , test.data)
+
+
+train.data$charges <- data$charges[training.samples]
+test.data$charges <- data$charges[-training.samples]
+
+```
+
+```{r}
+# Fitting charges ~ all columns excluding bmi
+sm1 <- lm(charges ~ age+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+
+# Take a look on summary of the model
+summary(sm1)
+
+pred_sm1 <- predict(sm1 , test.data)
+
+sqrt(mean((pred_sm1 - test.data$charges) ^ 2))
+```
+
+From the above result we can say that the model is statistically significant having p-value \< 2.2e-16.
+
+```{r}
+# Fitting charges ~ all columns excluding age
+sm2 <- lm(charges ~ bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+
+# Take a look on summary of the model
+summary(sm2)
+
+pred_sm2 <- predict(sm2 , test.data)
+
+sqrt(mean((pred_sm2 - test.data$charges) ^ 2))
+```
+
+```{r}
+# Fitting charges ~ all columns 
+sm3 <- lm(charges ~ age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+
+# Take a look on summary of the model
+summary(sm3)
+
+pred_sm3 <- predict(sm3 , test.data)
+
+sqrt(mean((pred_sm3 - test.data$charges) ^ 2))
+```
+
+```{r}
+# Fitting charges ~ only significant columns
+sm4 <- lm(charges ~ age+bmi+children+smoker+region_northeast, data = train.data)
+
+# Take a look on summary of the model
+summary(sm4)
+
+pred_sm4 <- predict(sm4 , test.data)
+
+sqrt(mean((pred_sm4 - test.data$charges) ^ 2))
+```
+
+```{r}
+pm1 <- lm(charges ~ poly(age , 2)+children+smoker+region_northeast  , data = train.data)
+
+summary(pm1)
+
+pred_pm1 <- predict(pm1 , test.data)
+
+sqrt(mean((pred_pm1 - test.data$charges) ^ 2))
+```
+
+```{r}
+pm2 <- lm(charges ~ poly(bmi , 2)+children+smoker+region_northeast  , data = train.data)
+
+summary(pm2)
+
+pred_pm2 <- predict(pm2 , test.data)
+
+sqrt(mean((pred_pm2 - test.data$charges) ^ 2))
+```
+
+```{r}
+sm4 <- lm(charges ~ age+bmi+smoker  , data = train.data)
+
+summary(sm4)
+
+pred_sm4 <- predict(sm4 , test.data)
+
+sqrt(mean((pred_sm4 - test.data$charges) ^ 2))
+```
+
+```{r}
+pm3 <- lm(charges ~  poly(age , 2)+poly(bmi , 2)+children+smoker+region_northeast  , data = train.data)
+
+summary(pm3)
+
+pred_pm3 <- predict(pm3 , test.data)
+
+sqrt(mean((pred_pm2 - test.data$charges) ^ 2))
+```
+
+```{r}
+# Run algorithms using 10-fold cross validation
+control <- trainControl(method="cv", number=10)
+metric <- "RMSE"
+```
+
+```{r}
+# a) GLM algorithm
+# CART
+set.seed(7)
+fit.cart <- train(charges~., data=train.data, method="rpart", metric=metric, trControl=control)
+
+pred_cart <- predict(fit.cart , test.data)
+
+sqrt(mean((pred_cart - test.data$charges) ^ 2))
+
+# b) nonlinear algorithms
+# CART
+set.seed(7)
+fit.cart <- train(charges~., data=train.data, method="rpart", metric=metric, trControl=control)
+
+pred_cart <- predict(fit.cart , test.data)
+
+sqrt(mean((pred_cart - test.data$charges) ^ 2))
+# kNN
+set.seed(7)
+fit.knn <- train(charges~., data=train.data, method="knn", metric=metric, trControl=control)
+
+pred_knn <- predict(fit.knn , test.data)
+
+sqrt(mean((pred_knn - test.data$charges) ^ 2))
+# c) advanced algorithms
+# SVM
+set.seed(7)
+fit.svm <- train(charges~., data=train.data, method="svmRadial", metric=metric, trControl=control)
+
+pred_svm <- predict(fit.svm , test.data)
+
+sqrt(mean((pred_svm - test.data$charges) ^ 2))
+# Random Forest
+set.seed(7)
+fit.rf <- train(charges~., data=train.data, method="rf", metric=metric, trControl=control)
+
+pred_rf <- predict(fit.rf , test.data)
+
+sqrt(mean((pred_rf - test.data$charges) ^ 2))
+```
+
+```{r}
+library("glmnet")
+offset <- log(train.data$age)
+X <- model.matrix(~age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast ,data= train.data)
+X_test <- model.matrix(~age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast ,data= test.data)
+offset_test <- log(test.data$age)
+regression <- glmnet(X, train.data$charges, family = "poisson", offset = offset , intercept = FALSE)
+```
+
+```{r}
+plot(regression)
+```
+
+```{r}
+foldid <- sample(1:10,size=length(train.data$charges),replace=TRUE)
+cv1 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 1, family = "poisson", offset = offset)
+cv.5 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 0.5, family = "poisson", offset = offset)
+cv0 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 0, family = "poisson", offset = offset)
+
+par(mfrow=c(2,2))
+plot(cv1)
+plot(cv.5)
+plot(cv0)
+plot(log(cv1$lambda), cv1$cvm, pch = 19, col = "red", xlab = "log(Lambda)", ylab = cv1$name)
+points(log(cv.5$lambda), cv.5$cvm, pch = 19, col = "grey")
+points(log(cv0$lambda), cv0$cvm, pch=19, col = "blue")
+legend("topleft", legend = c("alpha= 1", "alpha= .5", "alpha 0"), pch = 19, col = c("red", "grey", "blue"))
+```
+
+```{r}
+predict(regression , X_test , s = , newoffset = offset_test)
+```
