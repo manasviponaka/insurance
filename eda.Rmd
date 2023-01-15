@@ -10,29 +10,33 @@ author: Manasvi Ponaka
 ```{r pressure, echo=FALSE}
 library(tidyverse)
 library(viridis)
-library(patchwork)
 library(gridExtra)
 library(reshape2)
 library(caret)
-
+library(olsrr)
+library(lmvar)
+library(mctest)
+library(groupdata2)
 ```
 
-#### Loading data
+# Data Exploration and Manipulation
+
+### Loading data
 
 ```{r ,echo=FALSE}
-data <-read.csv("insurance.csv")
-data <- data %>% mutate_if
+data_original <-read.csv("insurance.csv")
+data <- data_original %>% mutate_if(is.character , as.factor)
 ```
 
 ```{r}
 summary(data)
 ```
 
-## Let's visually explore features one by one
+### Explore each column independently
 
 ```{r}
 data %>% 
-  ggplot(aes(x =log(age) ))+
+  ggplot(aes(x =age ))+
   geom_histogram(aes(y = ..density..),
                  bins = 30 , colour = 1, fill = "lightblue" , alpha = 0.5) +
   geom_density()+
@@ -85,10 +89,6 @@ data %>%
               			  legend.text = element_text(size = 25),
               			  legend.position = "bottom")
 
-```
-
-```{r}
-str(data)
 ```
 
 ```{r}
@@ -190,7 +190,7 @@ data %>%
               			  legend.position = "bottom")
 ```
 
-## Interacting variable analysis
+### Interacting variable analysis
 
 ```{r}
 data %>% 
@@ -220,7 +220,7 @@ data %>%
   geom_point(alpha= 0.5)+
   geom_smooth(method = "lm" , se = FALSE)+
     theme_classic()+
-  labs(title= "Point plot for age vs bmi across smoking and \n non smoking policy holders")+
+  labs(title= "Point plot for charges vs bmi across smoking and \n non smoking policy holders")+
   theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
                   theme(plot.title = element_text(hjust = 0.5, size=20),
               			  axis.title.x= element_text(size=20),
@@ -292,18 +292,11 @@ box3+
               			  legend.position = "right")
 ```
 
-```{r}
-grid.arrange(box1,box2,box3 ,ncol = 3  ,
-  widths = c(2,1, 6),
-  layout_matrix = rbind(c(1,1 , NA),c(1,1 , NA),c(2,2,NA),c(2,2 , NA),c(3,3 , NA),c(3,3 , NA))
-)
-```
-
-Feature engineering
+### Data Pre-processing
 
 ```{r}
 
-# anonymus fucntion to generate binary columns
+# anonymus function to generate binary columns
 minus1<-function(x){
   x-1
 }
@@ -328,7 +321,7 @@ head(poly_feat)
 ```
 
 ```{r}
-cormat <-cor(poly_feat %>% mutate(charges = data$charges))
+cormat <-cor(data %>% mutate(charges = data$charges))
 
 # Get lower triangle of the correlation matrix
   get_lower_tri<-function(cormat){
@@ -376,116 +369,199 @@ theme(
                 title.position = "top", title.hjust = 0.5))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### splitting data to train and test
 
 ```{r}
 
-set.seed(123)
-training.samples <- data$charges %>%
-  createDataPartition(p = 0.75, list = FALSE)
+# function to split dataframe into test and train according to given partition size 
+gen_train_test<- function(data , partition_size , normalise_flag ){
+  set.seed(123)
+  training.samples <- data$charges %>%
+  createDataPartition(p = partition_size, list = FALSE)
 
-train.data  <- data[training.samples, ]
-test.data <- data[-training.samples, ]
+  train.data  <- data[training.samples, ]
+  test.data <- data[-training.samples, ]
 
-normalizer <- preProcess(train.data, method="range")
-train.data <-predict(normalizer , train.data)
-test.data <-predict(normalizer , test.data)
+  if (normalise_flag){
+  normalizer <- preProcess(train.data, method="range")
+  train.data <-predict(normalizer , train.data)
+  test.data <-predict(normalizer , test.data)}
 
 
-train.data$charges <- data$charges[training.samples]
-test.data$charges <- data$charges[-training.samples]
+  train.data$charges <- data$charges[training.samples]
+  test.data$charges <- data$charges[-training.samples]
+
+return(list(train.data , test.data))
+
+}
+
 
 ```
 
 ```{r}
+temp_data <- gen_train_test(data , partition_size = 0.8 , TRUE)
+  train.data <- temp_data[[1]]
+  test.data <- temp_data[[2]]
+
+data_original<- data_original %>% mutate_if(is.character , as.factor)
+data_original$children <- as.factor(data_original$children)
+temp_data <- gen_train_test(data_original , partition_size = 0.8 ,FALSE)
+  train.data.original <- temp_data[[1]]
+  test.data.original <- temp_data[[2]]
+```
+
+# Multi-linear Model
+
+## Charges \~ all columns excluding bmi
+
+```{r}
 # Fitting charges ~ all columns excluding bmi
-sm1 <- lm(charges ~ age+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+sm1 <- lm(log(charges)~ age+sex+children+smoker+region, data = train.data.original)
 
 # Take a look on summary of the model
 summary(sm1)
 
-pred_sm1 <- predict(sm1 , test.data)
+pred_sm1 <- predict(sm1 , test.data.original)
 
-sqrt(mean((pred_sm1 - test.data$charges) ^ 2))
+sqrt(mean((exp(pred_sm1) - test.data.original$charges) ^ 2))
 ```
 
-From the above result we can say that the model is statistically significant having p-value \< 2.2e-16.
+From the above result we can say that the model is statistically significant having p-value \< 2.2e-16 and coefficients are relevant.
+
+## Charges \~ all columns excluding age
 
 ```{r}
 # Fitting charges ~ all columns excluding age
-sm2 <- lm(charges ~ bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+sm2 <- lm(log(charges) ~ bmi+sex+children+smoker+region, data = train.data.original)
 
 # Take a look on summary of the model
 summary(sm2)
 
-pred_sm2 <- predict(sm2 , test.data)
+pred_sm2 <- predict(sm2 , test.data.original)
 
-sqrt(mean((pred_sm2 - test.data$charges) ^ 2))
+sqrt(mean((exp(pred_sm2) - test.data.original$charges) ^ 2))
 ```
+
+From the above result we can say that the model is statistically significant having p-value \< 2.2e-16 and coefficients are relevant.
+
+## Charges \~ all columns - Baseline model
 
 ```{r}
 # Fitting charges ~ all columns 
-sm3 <- lm(charges ~ age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast, data = train.data)
+sm3 <- lm(log(charges) ~ age +bmi+sex+children+smoker+region, data = train.data.original)
 
 # Take a look on summary of the model
 summary(sm3)
 
-pred_sm3 <- predict(sm3 , test.data)
+```
 
-sqrt(mean((pred_sm3 - test.data$charges) ^ 2))
+#### metrics function
+
+```{r}
+metrics<- function(pred , data , log_flag = TRUE, train_flag = TRUE){
+  
+  if (log_flag){
+  pred <- as.numeric(unlist(lapply(pred, exp)))
+  }
+  
+  mae <- mean(abs(pred- data$charges))
+
+  rmse<- sqrt(mean((pred - data$charges) ^ 2))
+
+  r2<- 1 - (sum((pred - data$charges)^2) / sum((pred - mean(data$charges))^2))
+
+ if(train_flag){cat("Train\n")}else{  cat("Test\n")}
+
+  cat("\n rmse :" , rmse, "\n r2:", r2 ,"\n",'mae: ' , mae ,"\n")
+  return(c(rmse , r2 ,mae))
+}
 ```
 
 ```{r}
-# Fitting charges ~ only significant columns
-sm4 <- lm(charges ~ age+bmi+children+smoker+region_northeast, data = train.data)
 
-# Take a look on summary of the model
-summary(sm4)
+train_pred_sm3 <- predict(sm3 , train.data.original)
 
-pred_sm4 <- predict(sm4 , test.data)
+metrics(train_pred_sm3 , train.data.original)
 
-sqrt(mean((pred_sm4 - test.data$charges) ^ 2))
+pred_sm3 <- predict(sm3 , test.data.original )
+
+metrics(pred_sm3 , test.data.original,train_flag=  FALSE)
+
+
 ```
 
 ```{r}
-pm1 <- lm(charges ~ poly(age , 2)+children+smoker+region_northeast  , data = train.data)
+
+par(mfrow = c(2, 2))
+
+plot(sm3)
+mtext("Residual analysis plot for simple linear model\n\n", side = 3, line = - 2, outer = TRUE)
+
+```
+
+#### Residual Normality test
+
+```{r}
+hist(sm3$residuals)
+```
+
+> `The residual qqplot is deviating from 45 degree indicating that the residuals are not normal and its supported by the skewed histogram`
+
+Lets test for normality
+
+```{r}
+shapiro.test(sm3$residuals)
+```
+
+\>`p-value < 0.05 , Rejecting the null hypothesis that the residuals are normal`
+
+#### Heteroscedascity test
+
+```{r}
+olsrr::ols_test_score(sm3)
+
+```
+
+\>`The p-value < 0.05 hence rejecting the null hypothesis that the variance is homogeneous`
+
+#### Multi collinearity
+
+```{r}
+
+omcdiag(sm3)
+```
+
+```{r}
+imcdiag(sm3)
+```
+
+\>`No Multicollinearity in the data`
+
+\>`This tests indicate that there might presence of unoticeable outliers in the data and/or the relation ship between the dependent and independent variables in the data is not linear. We can see the hints of this from our interaction plots in the previous sections.`
+
+\>`Let's first proceed with the assumption that the data is not linear and start with a polynomial regresion and see if its enough to fit our complex data .`
+
+# Polynomial Regression
+
+```{r}
+pm1 <- lm(log(charges) ~ poly(age , 2)+poly(age , 2)+children+smoker+region  , data = train.data.original)
 
 summary(pm1)
-
-pred_pm1 <- predict(pm1 , test.data)
-
-sqrt(mean((pred_pm1 - test.data$charges) ^ 2))
 ```
+
+From the above result we can say that the model is statistically significant having p-value \< 2.2e-16 and coefficients are relevant.
 
 ```{r}
-pm2 <- lm(charges ~ poly(bmi , 2)+children+smoker+region_northeast  , data = train.data)
+pred_pm1 <- predict(pm1 , train.data.original)
+metrics(pred_pm1 ,train.data.original , train_flag = TRUE)
 
-summary(pm2)
-
-pred_pm2 <- predict(pm2 , test.data)
-
-sqrt(mean((pred_pm2 - test.data$charges) ^ 2))
+pred_pm1 <- predict(pm1 , test.data.original)
+metrics(pred_pm1 ,test.data.original , train_flag = FALSE)
 ```
 
-```{r}
-sm4 <- lm(charges ~ age+bmi+smoker  , data = train.data)
+\>`Lets check fo other models before introducing an interaction term to model.`
 
-summary(sm4)
-
-pred_sm4 <- predict(sm4 , test.data)
-
-sqrt(mean((pred_sm4 - test.data$charges) ^ 2))
-```
-
-```{r}
-pm3 <- lm(charges ~  poly(age , 2)+poly(bmi , 2)+children+smoker+region_northeast  , data = train.data)
-
-summary(pm3)
-
-pred_pm3 <- predict(pm3 , test.data)
-
-sqrt(mean((pred_pm2 - test.data$charges) ^ 2))
-```
+# Other models
 
 ```{r}
 # Run algorithms using 10-fold cross validation
@@ -493,77 +569,323 @@ control <- trainControl(method="cv", number=10)
 metric <- "RMSE"
 ```
 
+## a) nonlinear algorithms - CART , KNN
+
 ```{r}
-# a) GLM algorithm
+
 # CART
 set.seed(7)
-fit.cart <- train(charges~., data=train.data, method="rpart", metric=metric, trControl=control)
+fit.cart <- train(charges~., data=train.data.original, method="rpart", metric=metric, trControl=control)
 
-pred_cart <- predict(fit.cart , test.data)
+print(fit.cart)
 
-sqrt(mean((pred_cart - test.data$charges) ^ 2))
+train.pred_cart <- predict(fit.cart , data = train.data.original)
 
-# b) nonlinear algorithms
-# CART
-set.seed(7)
-fit.cart <- train(charges~., data=train.data, method="rpart", metric=metric, trControl=control)
+metrics(train.pred_cart , train.data.original , log_flag = FALSE )
 
-pred_cart <- predict(fit.cart , test.data)
+pred_cart <- predict(fit.cart , newdata = test.data.original )
 
-sqrt(mean((pred_cart - test.data$charges) ^ 2))
+metrics(pred_cart , test.data.original, log_flag = FALSE , train_flag = FALSE)
+
 # kNN
 set.seed(7)
-fit.knn <- train(charges~., data=train.data, method="knn", metric=metric, trControl=control)
+fit.knn <- train(charges~., data=train.data.original, method="knn", metric=metric, trControl=control)
 
-pred_knn <- predict(fit.knn , test.data)
+print(fit.knn)
 
-sqrt(mean((pred_knn - test.data$charges) ^ 2))
-# c) advanced algorithms
+train.pred_knn <- predict(fit.knn , data = train.data.original)
+
+metrics(train.pred_knn , train.data.original, log_flag = FALSE)
+
+pred_knn <- predict(fit.knn , newdata = test.data.original )
+
+metrics(pred_knn , test.data.original , log_flag = FALSE , train_flag = FALSE)
+```
+
+## b) advanced algorithms - SVM , Random Forest
+
+```{r}
+# b) advanced algorithms
 # SVM
 set.seed(7)
-fit.svm <- train(charges~., data=train.data, method="svmRadial", metric=metric, trControl=control)
+fit.svm <- train(charges~., data=train.data.original, method="svmRadial", metric=metric, trControl=control)
 
-pred_svm <- predict(fit.svm , test.data)
+print(fit.svm)
 
-sqrt(mean((pred_svm - test.data$charges) ^ 2))
+train.pred_svm <- predict(fit.svm , data = train.data.original)
+
+metrics(train.pred_svm , train.data.original, log_flag = FALSE)
+
+pred_svm <- predict(fit.svm , newdata = test.data.original )
+
+metrics(pred_svm , test.data.original , log_flag = FALSE , train_flag = FALSE)
+
+
+
 # Random Forest
 set.seed(7)
-fit.rf <- train(charges~., data=train.data, method="rf", metric=metric, trControl=control)
+fit.rf <- train(charges~., data=train.data.original, method="rf", metric=metric, trControl=control)
 
-pred_rf <- predict(fit.rf , test.data)
+print(fit.rf)
 
-sqrt(mean((pred_rf - test.data$charges) ^ 2))
+train.pred_rf<- predict(fit.rf , data = train.data.original)
+
+metrics(train.pred_rf, train.data.original, log_flag = FALSE)
+
+pred_rf <- predict(fit.rf , newdata = test.data.original )
+
+metrics(pred_rf , test.data.original , log_flag = FALSE , train_flag = FALSE)
+```
+
+## Model with interactions
+
+```{r}
+
+### Function to return trained model
+lmi_out <- function(train, test) {
+model.lmi<- lm(log(charges)~age+sex+bmi+children+smoker+region+age:smoker+bmi:smoker+I(log(age))+I(log(bmi)),data = train , x = TRUE ,y = TRUE)
+
+print(summary(model.lmi))
+
+train.pred_lmi <- predict(model.lmi , train)
+
+metrics(train.pred_lmi , train)
+
+pred_lmi <- predict(model.lmi , newdata = test )
+
+metrics(pred_lmi , test ,train_flag=  FALSE)
+
+return(model.lmi)
+}
+```
+
+### Cross validation
+
+```{r}
+#Function to print output scores of the model
+
+lmi_out.metrics<- function(train, test , fold) {
+model.lmi <- lm(log(charges)~age+sex+bmi+children+smoker+region+age:smoker+bmi:smoker+I(log(age))+I(log(bmi)),data = train , x = TRUE ,y = TRUE)
+
+print(summary(model.lmi))
+
+pred_lmi <- predict(model.lmi , test)
+
+rmse <- sqrt(mean((exp(pred_lmi) - test$charges) ^ 2))
+
+mae <- mean(abs(exp(pred_lmi) - test$charges))
+
+r2<- 1 - (sum((exp(pred_lmi) - test$charges)^2)) / (sum((exp(pred_lmi) - mean(test$charges))^2))
+
+cat(fold , "\n" , "rmse: ", "r2:" , r2,rmse , "mae: ",mae )
+
+return(c(rmse ,r2, mae))
+}
 ```
 
 ```{r}
-library("glmnet")
-offset <- log(train.data$age)
-X <- model.matrix(~age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast ,data= train.data)
-X_test <- model.matrix(~age +bmi+sex+children+smoker+region_northeast+region_northwest+region_southeast ,data= test.data)
-offset_test <- log(test.data$age)
-regression <- glmnet(X, train.data$charges, family = "poisson", offset = offset , intercept = FALSE)
+set.seed(7)
+data_cv <- fold(
+  train.data.original,
+  k = 10,
+  cat_col = c("children","smoker" , "sex" ,"region"),
+  num_fold_cols = 10,
+  parallel = FALSE # set to TRUE to run in parallel
+)
+
+
+n <- 10 ##number of folds in cv
+scores <- matrix(ncol=3, nrow=n)
+
+
+for (i in seq(1, 10)){
+   
+  fold <- paste(".folds_" , toString(i) , sep = "")
+  
+  test_set <- data_cv %>% 
+    dplyr::filter(!!as.symbol(fold) == 3)
+  
+  train_set <- data_cv %>% 
+    dplyr::filter(!!as.symbol(fold) != 3)
+
+  scores[i ,]<- lmi_out.metrics(train_set , train_set , fold)
+}
 ```
 
 ```{r}
-plot(regression)
+# column1 <- rmse , column2 <- mae
+mean_rmse <- mean(scores[,1])
+mean_mae <- mean(scores[,3])
+mean_r2 <- mean(scores[,2])
+
+cat(" mean rmse of the model: " , mean_rmse ,"\n", "mean mae of the model:" ,  mean_mae,"\n", "mean r-squared of the model:" ,  mean_r2)
 ```
 
 ```{r}
-foldid <- sample(1:10,size=length(train.data$charges),replace=TRUE)
-cv1 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 1, family = "poisson", offset = offset)
-cv.5 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 0.5, family = "poisson", offset = offset)
-cv0 <- cv.glmnet(X ,train.data$charges, foldid = foldid, alpha = 0, family = "poisson", offset = offset)
-
-par(mfrow=c(2,2))
-plot(cv1)
-plot(cv.5)
-plot(cv0)
-plot(log(cv1$lambda), cv1$cvm, pch = 19, col = "red", xlab = "log(Lambda)", ylab = cv1$name)
-points(log(cv.5$lambda), cv.5$cvm, pch = 19, col = "grey")
-points(log(cv0$lambda), cv0$cvm, pch=19, col = "blue")
-legend("topleft", legend = c("alpha= 1", "alpha= .5", "alpha 0"), pch = 19, col = c("red", "grey", "blue"))
+model.lmi1 <- lmi_out(train.data.original , test.data.original)
 ```
 
 ```{r}
-predict(regression , X_test , s = , newoffset = offset_test)
+par(mfrow = c(2, 2))
+plot(model.lmi1 , main = "Non-Linear model residual analysis plot\n")
+
+```
+
+\>\`The model
+
+### outliers
+
+lets delete the outliers using cook's method fit the model
+
+#### cooks - Not recommended as it does not satisfy linearity assumptions
+
+```{r}
+
+cooksD <- cooks.distance(model.lmi1)
+influential <- cooksD[(cooksD > (3 * mean(cooksD, na.rm = TRUE)))]
+outliers <- data_original[names(influential),]
+data_no_out <- data_original %>% anti_join(outliers)
+
+```
+
+The assumptions (linear relation ship of dependent and independent variables) of the cooks method are not met by the data.So, this method id nort recommended.
+
+#### mahalanobisb- recommended
+
+```{r}
+
+# Finding the center point 
+data.center  = colMeans(data_original %>% select(where(is.numeric)))
+
+# Finding the covariance matrix
+data.cov     = cov(data_original %>% select(where(is.numeric)))
+
+
+# Finding distances
+distances <- mahalanobis(x = data_original %>% select(where(is.numeric)) , center = data.center , cov = data.cov)
+
+# Cutoff value for distances from Chi-Square Dist. 
+# with p = 0.95 df = 2 which in ncol(air)
+cutoff <- qchisq(p = 0.95 , df = ncol(data_original %>% select(where(is.numeric))))
+
+## outliers observation whose distance greater than cutoff value
+influential.<- row.names(data_original[distances < cutoff ,])
+
+outliers <- data_original[names(influential),]
+
+data_no_out <- data_original %>% anti_join(outliers)
+
+```
+
+```{r}
+set.seed(7)
+temp_data <- gen_train_test(data_no_out , partition_size = 0.8 ,FALSE)
+  train.data.no_out <- temp_data[[1]]
+  test.data.no_out <- temp_data[[2]]
+```
+
+### Cross validation
+
+```{r}
+
+set.seed(7)
+data_cv_out <- fold(
+  train.data.no_out,
+  k = 10,
+  cat_col = c("children","smoker" , "sex" ,"region"),
+  num_fold_cols = 10,
+  parallel = FALSE # set to TRUE to run in parallel
+)
+
+
+
+n <- 10
+scores_out <- matrix(ncol=3, nrow=n)
+
+
+for (i in seq(1, 10)){
+   
+  fold <- paste(".folds_" , toString(i) , sep = "")
+  
+  test_set <- data_cv_out %>% 
+    dplyr::filter(!!as.symbol(fold) == 3)
+  
+  train_set <- data_cv_out %>% 
+    dplyr::filter(!!as.symbol(fold) != 3)
+
+  scores_out[i ,]<- lmi_out.metrics(train_set , train_set , fold)
+}
+```
+
+```{r}
+# column1 <- rmse , column2 <- mae
+mean_rmse <- mean(scores_out[,1])
+mean_mae <- mean(scores_out[,3])
+mean_r2 <- mean(scores_out[,2])
+
+cat(" mean rmse of the model: " , mean_rmse ,"\n", "mean mae of the model:" ,  mean_mae,"\n", "mean r-squared of the model:" ,  mean_r2)
+```
+
+```{r}
+model.lmi.no_out <- lmi_out(train.data.no_out ,test.data.no_out )
+par(mfrow = c(2, 2))
+plot(model.lmi.no_out)
+```
+
+```{r}
+olsrr::ols_test_score(model.lmi.no_out)
+```
+We reject the alternative hypothesis that variamnce is not homogenous.
+
+```{r}
+omcdiag(model.lmi.no_out)
+```
+
+```{r}
+imcdiag(model.lmi.no_out)
+
+```
+
+### Residual Analysis
+
+```{r}
+par(mfrow = c(2, 2))
+
+plot(model.lmi.no_out)
+resid_hist<- ggplot(model.lmi.no_out, aes( x = .resid)) +
+  geom_histogram(aes(y = ..density.. ), color = "black" , fill = "lightblue") +
+  geom_density(fill = "red", alpha = 0.2)+
+  labs(title= "Histogram of residuals")+
+  theme_classic()+
+  theme(text=element_text(size=10,  family="Times") , plot.title = element_text( hjust = 0.5))+
+                  theme(plot.title = element_text(hjust = 0.4, size=20),
+              			  axis.title.x= element_text(size=20),
+              			  axis.title.y= element_text(size=20),
+              			  axis.text.x = element_text(size=20),
+              			  axis.text.y = element_text(size = 20),
+              			  legend.title = element_text(size = 20),
+              			  legend.text = element_text(size = 20),
+              			  legend.position = "right")
+
+
+resid_hist
+```
+>`Residuals are randomly distributed and their variance is homogeneous as confirmed by ols_test`
+
+```{r}
+hist(train.data.no_out$charges,col = "lightblue",probability = TRUE,lwd=2,breaks = 35 ,main = "Distribution of Train data Predicted and True value")
+lines(density(train.data.no_out$charges),col="red",lty=2,lwd=3)
+
+lines( density(exp(model.lmi.no_out$fitted.values)),col="blue",lty=2,lwd=3)
+
+legend("topright",legend = c("charges","exp(model fitted values)"),col = c("red","blue"),lty = 2,lwd=2)
+```
+```{r}
+pred_nlm <- predict(model.lmi.no_out , test.data.no_out)
+
+hist(test.data.no_out$charges,col = "lightblue",breaks = 35,probability = TRUE , main = "Distribution of Test data Predicted and True value")
+lines(density(test.data.no_out$charges),col="red",lwd=3,lty=2)
+lines(density(exp(pred_nlm)),col="blue",lty=2,lwd=3)
+legend("topright",legend = c("charges","exp(model fitted values)"),col = c("red","blue"),lty = 2,lwd=2)
+
 ```
